@@ -8,13 +8,10 @@ import {
   getDoc,
 } from "./firebase.js";
 
-// Alerts using SweetAlert
 const showAlert = (type, title, text) => Swal.fire({ icon: type, title, text });
 
-// Email check
 const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-// DOM elements
 const $ = (selector) => document.querySelector(selector);
 
 const elements = {
@@ -27,10 +24,8 @@ const elements = {
   frontPage: $(".FrontPage"),
 };
 
-// Current user role (user/admin)
 let currentRole = "user";
 
-// Show/hide password
 document.querySelectorAll(".toggle-password").forEach((btn) => {
   btn.addEventListener("click", () => {
     const input = btn.previousElementSibling;
@@ -40,7 +35,6 @@ document.querySelectorAll(".toggle-password").forEach((btn) => {
   });
 });
 
-// Show/Hide popups
 const togglePopup = (show, formType) => {
   elements.body.style.overflowY = show ? "hidden" : "auto";
   elements.frontPage.style.opacity = show ? "0.5" : "1";
@@ -52,12 +46,10 @@ const togglePopup = (show, formType) => {
     formType === "login" && show ? "block" : "none";
 };
 
-// Clear input fields
 const clearInputs = (form) => {
   form.querySelectorAll("input").forEach((input) => (input.value = ""));
 };
 
-// Open forms
 const openForm = (type = "user") => {
   currentRole = type;
   togglePopup(true, "signup");
@@ -69,12 +61,10 @@ const openLogin = () => {
   clearInputs(elements.loginForm);
 };
 
-// Button events
 elements.signupBtn.addEventListener("click", () => openForm("user"));
 elements.adminSignupBtn.addEventListener("click", () => openForm("admin"));
 elements.loginBtn.addEventListener("click", openLogin);
 
-// Close popups
 document.querySelectorAll(".close-popup").forEach((btn) => {
   btn.addEventListener("click", () => {
     togglePopup(false);
@@ -82,7 +72,6 @@ document.querySelectorAll(".close-popup").forEach((btn) => {
   });
 });
 
-// Switch forms
 document.querySelectorAll(".switch-form").forEach((link) => {
   link.addEventListener("click", (e) => {
     e.preventDefault();
@@ -92,7 +81,6 @@ document.querySelectorAll(".switch-form").forEach((link) => {
   });
 });
 
-// Signup
 $("#signupBtn").addEventListener("click", async () => {
   const email = $("#su-email").value;
   const password = $("#su-password").value;
@@ -144,7 +132,6 @@ $("#signupBtn").addEventListener("click", async () => {
   }
 });
 
-// Login
 $("#loginBtn").addEventListener("click", async () => {
   const email = $("#li-email").value;
   const password = $("#li-password").value;
