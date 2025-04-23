@@ -1,201 +1,188 @@
-import { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, db, doc, setDoc, onAuthStateChanged, getDoc } from './firebase.js';
+import {
+  auth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  db,
+  doc,
+  setDoc,
+  getDoc,
+} from "./firebase.js";
 
-const showError = (title, text) => Swal.fire({ icon: "error", title, text });
-const showSuccess = (title, text) => Swal.fire({ icon: "success", title, text });
-const showWarning = (title, text) => Swal.fire({ icon: "warning", title, text });
+// Alerts using SweetAlert
+const showAlert = (type, title, text) => Swal.fire({ icon: type, title, text });
 
-const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+// Email check
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+// DOM elements
+const $ = (selector) => document.querySelector(selector);
+
+const elements = {
+  signupBtn: $(".sign-up-btn"),
+  adminSignupBtn: $("#admin-signup-btn"),
+  loginBtn: $(".log-in-btn"),
+  signupForm: $("#signup-container"),
+  loginForm: $("#login-container"),
+  body: $("body"),
+  frontPage: $(".FrontPage"),
 };
 
-document.querySelectorAll(".toggle-password").forEach(toggle => {
-    toggle.addEventListener("click", () => {
-        const passwordInput = toggle.previousElementSibling;
-        const eyeIcon = toggle.querySelector(".eye-icon");
-        if (passwordInput.type === "password") {
-            passwordInput.type = "text";
-            eyeIcon.src = "images/unvisible eye.png";
-        } else {
-            passwordInput.type = "password";
-            eyeIcon.src = "images/visible eye.png";
-        }
-    });
-});
-
-let signupBtn = document.querySelector(".sign-up-btn");
-let adminSignupBtn = document.getElementById("admin-signup-btn");
-let loginBtn = document.querySelector(".log-in-btn");
-let signupCont = document.getElementById("signup-container");
-let loginCont = document.getElementById("login-container");
-let body = document.querySelector("body");
-let frontPage = document.querySelector(".FrontPage");
-
+// Current user role (user/admin)
 let currentRole = "user";
 
-signupBtn.addEventListener("click", () => {
-    signupCont.style.display = "block";
-    loginCont.style.display = "none";
-    body.style.overflowY = "hidden";
-    frontPage.style.opacity = "0.5";
-    frontPage.style.pointerEvents = "none";
-    currentRole = "user";
-    console.log("User Signup Clicked - Current Role:", currentRole);
-    signupCont.querySelector("#su-email").value = "";
-    signupCont.querySelector("#su-password").value = "";
+// Show/hide password
+document.querySelectorAll(".toggle-password").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const input = btn.previousElementSibling;
+    input.type = input.type === "password" ? "text" : "password";
+    btn.querySelector(".eye-icon").src =
+      input.type === "text" ? "images/eye-off.png" : "images/eye-on.png";
+  });
 });
 
-adminSignupBtn.addEventListener("click", () => {
-    signupCont.style.display = "block";
-    loginCont.style.display = "none";
-    body.style.overflowY = "hidden";
-    frontPage.style.opacity = "0.5";
-    frontPage.style.pointerEvents = "none";
-    currentRole = "admin";
-    console.log("Admin Signup Clicked - Current Role:", currentRole);
-    signupCont.querySelector("#su-email").value = "";
-    signupCont.querySelector("#su-password").value = "";
+// Show/Hide popups
+const togglePopup = (show, formType) => {
+  elements.body.style.overflowY = show ? "hidden" : "auto";
+  elements.frontPage.style.opacity = show ? "0.5" : "1";
+  elements.frontPage.style.pointerEvents = show ? "none" : "auto";
+
+  elements.signupForm.style.display =
+    formType === "signup" && show ? "block" : "none";
+  elements.loginForm.style.display =
+    formType === "login" && show ? "block" : "none";
+};
+
+// Clear input fields
+const clearInputs = (form) => {
+  form.querySelectorAll("input").forEach((input) => (input.value = ""));
+};
+
+// Open forms
+const openForm = (type = "user") => {
+  currentRole = type;
+  togglePopup(true, "signup");
+  clearInputs(elements.signupForm);
+};
+
+const openLogin = () => {
+  togglePopup(true, "login");
+  clearInputs(elements.loginForm);
+};
+
+// Button events
+elements.signupBtn.addEventListener("click", () => openForm("user"));
+elements.adminSignupBtn.addEventListener("click", () => openForm("admin"));
+elements.loginBtn.addEventListener("click", openLogin);
+
+// Close popups
+document.querySelectorAll(".close-popup").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    togglePopup(false);
+    clearInputs(document.getElementById(btn.dataset.target));
+  });
 });
 
-loginBtn.addEventListener("click", () => {
-    loginCont.style.display = "block";
-    signupCont.style.display = "none";
-    body.style.overflowY = "hidden";
-    frontPage.style.opacity = "0.5";
-    frontPage.style.pointerEvents = "none";
-    loginCont.querySelector("#li-email").value = "";
-    loginCont.querySelector("#li-password").value = "";
+// Switch forms
+document.querySelectorAll(".switch-form").forEach((link) => {
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    const target = link.dataset.target;
+    togglePopup(true, target === "signup-container" ? "signup" : "login");
+    clearInputs(document.getElementById(target));
+  });
 });
 
-document.querySelectorAll(".close-popup").forEach(closeBtn => {
-    closeBtn.addEventListener("click", () => {
-        const target = document.getElementById(closeBtn.dataset.target);
-        target.style.display = "none";
-        body.style.overflowY = "auto";
-        frontPage.style.opacity = "1";
-        frontPage.style.pointerEvents = "auto";
+// Signup
+$("#signupBtn").addEventListener("click", async () => {
+  const email = $("#su-email").value;
+  const password = $("#su-password").value;
+
+  if (!email || !password) {
+    return showAlert(
+      "error",
+      "Missing Fields",
+      "Please enter email and password."
+    );
+  }
+
+  if (!isValidEmail(email)) {
+    return showAlert("error", "Invalid Email", "Enter a valid email address.");
+  }
+
+  if (password.length < 6) {
+    return showAlert(
+      "error",
+      "Weak Password",
+      "Password must be 6 characters at least."
+    );
+  }
+
+  try {
+    elements.signupBtn.disabled = true;
+
+    const { user } = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password
+    );
+
+    await setDoc(doc(db, "users", user.uid), {
+      uid: user.uid,
+      email: user.email,
+      role: currentRole,
+      created_at: new Date().toISOString(),
     });
+
+    await showAlert("success", "Signup Successful", `Welcome, ${user.email}`);
+    togglePopup(false);
+    window.location.href =
+      currentRole === "admin" ? "/admin.html" : "/dishes.html";
+  } catch (err) {
+    showAlert("error", "Signup Failed", err.message);
+  } finally {
+    elements.signupBtn.disabled = false;
+  }
 });
 
-document.querySelectorAll(".switch-form").forEach(switchLink => {
-    switchLink.addEventListener("click", (e) => {
-        e.preventDefault();
-        const target = document.getElementById(switchLink.dataset.target);
-        signupCont.style.display = target.id === "signup-container" ? "block" : "none";
-        loginCont.style.display = target.id === "login-container" ? "block" : "none";
-        body.style.overflowY = "hidden";
-        frontPage.style.opacity = "0.5";
-        frontPage.style.pointerEvents = "none";
-        currentRole = target.id === "signup-container" ? "user" : currentRole;
-        console.log("Switch Form - Current Role:", currentRole);
+// Login
+$("#loginBtn").addEventListener("click", async () => {
+  const email = $("#li-email").value;
+  const password = $("#li-password").value;
 
-        if (target.id === "signup-container") {
-            const emailInput = target.querySelector("#su-email");
-            const passwordInput = target.querySelector("#su-password");
-            if (emailInput) emailInput.value = "";
-            if (passwordInput) passwordInput.value = "";
-        } else if (target.id === "login-container") {
-            const emailInput = target.querySelector("#li-email");
-            const passwordInput = target.querySelector("#li-password");
-            if (emailInput) emailInput.value = "";
-            if (passwordInput) passwordInput.value = "";
-        }
-    });
-});
+  if (!email || !password) {
+    return showAlert(
+      "error",
+      "Missing Fields",
+      "Please enter email and password."
+    );
+  }
 
-document.getElementById("signupBtn").addEventListener("click", async () => {
-    const email = signupCont.querySelector("#su-email").value;
-    const password = signupCont.querySelector("#su-password").value;
+  if (!isValidEmail(email)) {
+    return showAlert("error", "Invalid Email", "Enter a valid email address.");
+  }
 
-    if (!email || !password) {
-        return showError("Missing Fields", "Please enter email and password!");
+  try {
+    elements.loginBtn.disabled = true;
+
+    const { user } = await signInWithEmailAndPassword(auth, email, password);
+    const docSnap = await getDoc(doc(db, "users", user.uid));
+
+    if (!docSnap.exists()) {
+      throw new Error("User record not found.");
     }
 
-    if (!validateEmail(email)) {
-        return showError("Invalid Email", "Please enter a valid email address!");
-    }
+    const role = docSnap.data().role;
 
-    if (password.length < 6) {
-        return showError("Weak Password", `Password must be at least 6 characters long! Current length: ${password.length}`);
-    }
-
-    console.log("Signup Role:", currentRole);
-
-    try {
-        const { user } = await createUserWithEmailAndPassword(auth, email, password);
-        console.log("Firebase Signup Successful, UID:", user.uid);
-
-        await setDoc(doc(db, "users", user.uid), {
-            uid: user.uid,
-            role: currentRole,
-            created_at: new Date().toISOString()
-        });
-        console.log("Firestore User Role Saved");
-
-        showSuccess("Signup Successful", `Welcome, ${user.email}!`).then((result) => {
-            if (result.isConfirmed) {
-                setTimeout(() => {
-                    signupCont.style.display = "none";
-                    body.style.overflowY = "auto";
-                    frontPage.style.opacity = "1";
-                    frontPage.style.pointerEvents = "auto";
-                    if (currentRole === "admin") {
-                        window.location.href = '/admin.html';
-                    } else {
-                        window.location.href = '/dishes.html';
-                    }
-                }, 1000);
-            }
-        });
-    } catch (error) {
-        console.error("Signup Error:", error);
-        showError("Signup Failed", error.message);
-    }
-});
-
-document.getElementById("loginBtn").addEventListener("click", async () => {
-    const email = loginCont.querySelector("#li-email").value;
-    const password = loginCont.querySelector("#li-password").value;
-
-    if (!email || !password) {
-        return showError("Missing Fields", "Please enter email and password!");
-    }
-
-    if (!validateEmail(email)) {
-        return showError("Invalid Email", "Please enter a valid email address!");
-    }
-
-    try {
-        const { user } = await signInWithEmailAndPassword(auth, email, password);
-        console.log("Firebase Login Successful, UID:", user.uid);
-
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (!userDoc.exists()) {
-            throw new Error("User role not found in Firestore. Please sign up again.");
-        }
-        const role = userDoc.data().role;
-        console.log("Firestore Role:", role);
-
-        showSuccess("Login Successful", `Welcome back, ${user.email}!`).then((result) => {
-            if (result.isConfirmed) {
-                setTimeout(() => {
-                    loginCont.style.display = "none";
-                    body.style.overflowY = "auto";
-                    frontPage.style.opacity = "1";
-                    frontPage.style.pointerEvents = "auto";
-                    if (role === "admin") {
-                        window.location.href = '/admin.html';
-                    } else if (role === "user") {
-                        window.location.href = '/dishes.html';
-                    } else {
-                        console.warn("Invalid role detected:", role);
-                        window.location.href = '/dishes.html';
-                    }
-                }, 1000);
-            }
-        });
-    } catch (error) {
-        console.error("Login Error:", error);
-        showError("Login Failed", error.message);
-    }
+    await showAlert(
+      "success",
+      "Login Successful",
+      `Welcome back, ${user.email}`
+    );
+    togglePopup(false);
+    window.location.href = role === "admin" ? "/admin.html" : "/dishes.html";
+  } catch (err) {
+    showAlert("error", "Login Failed", err.message);
+  } finally {
+    elements.loginBtn.disabled = false;
+  }
 });
